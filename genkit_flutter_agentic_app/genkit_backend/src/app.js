@@ -1,3 +1,5 @@
+// load environment variables from .env (if present)
+import 'dotenv/config';
 import { startFlowServer } from '@genkit-ai/express';
 import { packingHelperFlow } from './flows/packingHelper.js';
 import { purchaseFlow } from './flows/purchase.js';

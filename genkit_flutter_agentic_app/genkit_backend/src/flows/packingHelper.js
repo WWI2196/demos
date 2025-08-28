@@ -50,26 +50,59 @@ export const packingHelperFlow = ai.defineFlow(
         inputSchema: PackingHelperInputSchema,
     },
     async (input) => {
+        console.log('Packing helper flow started with input:', JSON.stringify(input, null, 2));
 
-        const weatherResponse = await ai.generate({
-            prompt: `Get the weather forecast for the next ${input.numberOfDays} days in this location: ${input.location}.`,
-            input: {
-                schema: z.object({
-                    'numberOfDays':
-                        z.number().describe('Number of days to get the weather forecast for'),
-                    'location':
-                        z.string().describe('The location to get the weather forecast for'),
-                }).describe('Input to get the weather forecast'),
-            },
-            tools: [getWeatherTool, getLatLongTool],
-            model: gemini20Flash,
-            output: {
-                schema: WeatherSchema,
-            },
-        });
+        let weatherResponse;
+        let location;
+        let weather;
+        
+        try {
+            console.log('Starting weather generation...');
+            weatherResponse = await ai.generate({
+                prompt: `You are a travel weather assistant. Your task is to:
+                1. Use the getLatLong tool to get coordinates for: ${input.location}
+                2. Use the getWeather tool to get the ${input.numberOfDays}-day forecast for those coordinates
+                3. Extract the city and state from the location: ${input.location}
+                4. Create a 2-sentence weather summary
+                
+                Return a JSON object with this exact structure:
+                {
+                  "location": {
+                    "city": "CityName",
+                    "state": "StateName"
+                  },
+                  "weatherForecast": "Two sentence weather summary here."
+                }`,
+                tools: [getWeatherTool, getLatLongTool],
+                model: gemini20Flash,
+                output: {
+                    schema: WeatherSchema,
+                },
+                config: {
+                    temperature: 0.1, // Lower temperature for more consistent structured output
+                }
+            });
 
-        const location = weatherResponse.output.location;
-        const weather = weatherResponse.output.weatherForecast;
+            console.log('Weather generation completed. Raw response:', JSON.stringify(weatherResponse, null, 2));
+
+            if (!weatherResponse.output || !weatherResponse.output.location || !weatherResponse.output.weatherForecast) {
+                throw new Error('Invalid weather response structure');
+            }
+
+            location = weatherResponse.output.location;
+            weather = weatherResponse.output.weatherForecast;
+            console.log('Extracted location:', location, 'weather:', weather);
+        } catch (error) {
+            console.error('Weather generation failed:', error);
+            // Fallback: parse location manually and provide default weather
+            const locationParts = input.location.split(',').map(part => part.trim());
+            location = {
+                city: locationParts[0] || 'Unknown City',
+                state: locationParts[1] || 'Unknown State'
+            };
+            weather = `Weather forecast for ${location.city}, ${location.state} for the next ${input.numberOfDays} days. Please check local weather services for current conditions.`;
+            console.log('Using fallback location:', location, 'weather:', weather);
+        }
 
         const outfitsResponse = await ai.generate({
             system: 'You are an expert personal stylist. A traveler has asked you to put together outfits for them to wear for an upcoming travel trip. You curate outfits based on the weather and the traveler\'s preferences.',

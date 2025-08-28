@@ -64,7 +64,8 @@ async function getWeather(lat, lon, days) {
 
         return text;
     } catch (error) {
-        return console.error("Error fetching weather data:", error);
+        console.error("Error fetching weather data:", error);
+        throw error; // Re-throw the error instead of returning undefined
     }
 }
 
