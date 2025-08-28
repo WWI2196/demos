@@ -136,13 +136,17 @@ export const packingHelperFlow = ai.defineFlow(
         const checklist = checklistResponse.output;
 
         const heroImageResponse = await ai.generate({
-            prompt: `Get JUST the URL to an image of the travel destination: ${input.location} as a string. Use a search query that wil return an image of a popular tourist attraction in ${location.city},${location.state}. If there is no famous attraction, find an image of the ${location.city} skyline.`,
+            prompt: `Get the URL to an image of the travel destination: ${input.location}. Use a search query that will return an image of a popular tourist attraction in ${location.city}, ${location.state}. If there is no famous attraction, find an image of the ${location.city} skyline. Return ONLY the URL string without quotes.`,
             tools: [getUnsplashTool],
             model: gemini20Flash,
-            output: z.string().describe(`URL to an image of ${input.location}`)
         });
 
-        const heroImage = heroImageResponse.text;
+        let heroImage = heroImageResponse.text;
+        
+        // Clean up any extra quotes, whitespace, or newlines from the URL
+        if (heroImage) {
+            heroImage = heroImage.replace(/^["']|["']$/g, '').trim().replace(/\n/g, '');
+        }
 
         return {
             location: location,
